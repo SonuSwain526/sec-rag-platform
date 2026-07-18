@@ -1,0 +1,29 @@
+# FastAPI Web Framework
+fastapi
+uvicorn[standard]
+
+# Data Validation and Settings Management
+pydantic
+pydantic-settings
+
+# Database and Migrations
+sqlalchemy[asyncio]
+asyncpg
+alembic
+
+# Vector Store Client
+qdrant-client
+
+# Authentication and Cryptography
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+
+# HTTP Client (for routing integration testing)
+httpx
+
+# Development and Testing Suite
+pytest
+pytest-asyncio
+black
+flake8
