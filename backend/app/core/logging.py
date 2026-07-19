@@ -1,47 +1,25 @@
-"""
-Logging Configuration Module for sec-rag.
-
-This module initializes and configures logging parameters for FastAPI,
-providing standard formatting, console handlers, and log level resolution.
-"""
-
 import logging
 import sys
-from typing import Any, Dict
+
+from app.core.config import get_settings
+
+settings = get_settings()
 
 
-def setup_app_logging() -> None:
+def setup_logging() -> None:
     """
-    Sets up application-wide logger layout and handler configuration.
-    
-    TODO: Support file logging and integration with external monitoring systems (e.g., Sentry).
+    Configures application-wide structured logging.
+    In production, you'd swap this for JSON-formatted logs
+    (e.g., via `python-json-logger`) for log aggregation tools —
+    plain text is fine for a portfolio project running locally.
     """
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    
-    # Configure root logger
+    level = logging.DEBUG if settings.DEBUG else logging.INFO
+
     logging.basicConfig(
-        level=logging.INFO,
-        format=log_format,
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
+        level=level,
+        format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
-    # Disable verbose logging from third party libraries
-    # TODO: Add configurable overrides for development/debugging
+    # Quiet down noisy third-party loggers
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-
-
-def get_logger(name: str) -> logging.Logger:
-    """
-    Returns a configured logger instance for the given module name.
-    
-    Args:
-        name: The module or component name.
-        
-    Returns:
-        A logger instance.
-    """
-    # TODO: Wrap this with custom logging utility to add contextual span info (e.g. tracing)
-    return logging.getLogger(name)

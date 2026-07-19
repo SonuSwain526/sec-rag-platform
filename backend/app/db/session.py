@@ -1,52 +1,33 @@
-"""
-Database Session Management Module for sec-rag.
+from collections.abc import Generator
 
-This module initializes the SQLAlchemy 2.x database engine and session maker,
-and defines dependencies for database session injection in FastAPI routes.
-"""
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
 
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
-from app.core.config import settings
+from app.core.config import get_settings
 
-# Create async engine for PostgreSQL connection
-# TODO: Adjust connection pool parameters (pool_size, max_overflow) for production
-engine = create_async_engine(
+settings = get_settings()
+
+# check_same_thread=False is SQLite-specific: SQLite normally restricts
+# a connection to the thread that created it. FastAPI can serve requests
+# on different threads, so we relax this — safe here since each request
+# gets its own session (see get_db below), not a shared connection.
+engine = create_engine(
     settings.DATABASE_URL,
-    echo=False,
-    future=True
+    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {},
 )
 
-# Async session factory
-async_session_maker = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-class Base(DeclarativeBase):
+def get_db() -> Generator[Session, None, None]:
     """
-    SQLAlchemy 2.x Declarative Base for models.
+    FastAPI dependency that provides a database session per request.
+    The `yield` pattern ensures the session is always closed after
+    the request finishes, even if an error occurs mid-request.
+    Usage in an endpoint: `db: Session = Depends(get_db)`
     """
-    pass
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    FastAPI dependency yielding an active asynchronous database session.
-    Automatically handles transaction close/rollback on completion.
-    """
-    async with async_session_maker() as session:
-        try:
-            yield session
-            # TODO: Automatically commit changes if no exceptions were raised
-            # await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

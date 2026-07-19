@@ -1,65 +1,52 @@
-"""
-FastAPI Main Entrypoint for sec-rag.
-
-Initializes the FastAPI application instance, sets up middleware configurations,
-attaches custom API routers, and defines lifespan startup/shutdown events.
-"""
-
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
-from app.core.logging import setup_app_logging, get_logger
+from app.core.config import get_settings
+from app.core.logging import setup_logging
 from app.api.v1.router import api_router
-from app.db.session import engine
 
-# Configure logs
-setup_app_logging()
-logger = get_logger(__name__)
+settings = get_settings()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI):
     """
-    Handles application startup and shutdown events.
+    Runs once at startup, then once at shutdown.
+    This is where we'll later load embedding/reranker models into
+    memory (Phase 8+) so they aren't reloaded on every request.
     """
-    logger.info("Initializing sec-rag services...")
-    # TODO: Verify database and Qdrant connectivity here
+    setup_logging()
+    # Startup logic goes here (e.g., warm up ML models, check Qdrant connection)
     yield
-    logger.info("Shutting down engine resources...")
-    # Dispose of connection pools
-    await engine.dispose()
+    # Shutdown logic goes here (e.g., close DB connections gracefully)
 
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    lifespan=lifespan
-)
-
-# Apply CORS origins middleware configurations
-# TODO: Fine-tune headers and credentials for production clients
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Attach routes
-app.include_router(api_router, prefix=settings.API_V1_STR)
-
-
-@app.get("/")
-async def root() -> dict:
+def create_app() -> FastAPI:
     """
-    Application index info endpoint.
+    Application factory. Builds and returns a configured FastAPI instance.
+    Keeping this in a function (not module-level `app = FastAPI()`)
+    makes the app testable — tests can call create_app() to get a
+    fresh instance without import-time side effects.
     """
-    return {
-        "project": settings.PROJECT_NAME,
-        "status": "healthy",
-        "api_docs_url": "/docs"
-    }
+    app = FastAPI(
+        title=settings.APP_NAME,
+        debug=settings.DEBUG,
+        lifespan=lifespan,
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.BACKEND_CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    app.include_router(api_router, prefix="/api/v1")
+
+    return app
+
+
+app = create_app()
