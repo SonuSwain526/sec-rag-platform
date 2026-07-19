@@ -1,113 +1,57 @@
-"""
-Document Repository Module for sec-rag.
+from sqlalchemy.orm import Session
 
-Exposes interfaces and implementations for PostgreSQL document table data operations.
-"""
-
-from abc import ABC, abstractmethod
-from typing import List, Optional
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.document import Document, DocumentChunk
-from app.schemas.document import DocumentCreate
+from app.models.document import Document
 
 
-class BaseDocumentRepository(ABC):
+class DocumentRepository:
     """
-    Abstract interface for managing Document and DocumentChunk database persistence.
+    Encapsulates all database access for the Document model.
+    Services and API endpoints should go through this class instead
+    of writing raw SQLAlchemy queries directly — keeps DB access logic
+    in one place, and makes services easy to unit test (mock this class
+    instead of needing a real database).
     """
-    @abstractmethod
-    async def create_document(self, doc_in: DocumentCreate) -> Document:
-        """Persist a new document record."""
-        pass
 
-    @abstractmethod
-    async def get_document(self, doc_id: int) -> Optional[Document]:
-        """Fetch a document record by ID."""
-        pass
-
-    @abstractmethod
-    async def list_documents(self, skip: int = 0, limit: int = 100) -> List[Document]:
-        """List document records with pagination."""
-        pass
-
-    @abstractmethod
-    async def update_document_status(self, doc_id: int, status: str) -> Optional[Document]:
-        """Update processing status of a document."""
-        pass
-
-    @abstractmethod
-    async def add_document_chunks(self, doc_id: int, chunks: List[dict]) -> List[DocumentChunk]:
-        """Persist chunk blocks for a parsed document."""
-        pass
-
-
-class SQLDocumentRepository(BaseDocumentRepository):
-    """
-    SQLAlchemy-backed async repository for PostgreSQL databases.
-    """
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: Session):
         self.db = db
 
-    async def create_document(self, doc_in: DocumentCreate) -> Document:
-        """
-        Creates and stores a Document entity.
-        """
-        db_doc = Document(
-            filename=doc_in.filename,
-            file_path=doc_in.file_path,
-            ticker=doc_in.ticker,
-            form_type=doc_in.form_type,
-            filing_date=doc_in.filing_date,
-            status="pending"
+    def create(
+        self,
+        company: str,
+        fiscal_year: int,
+        filename: str,
+        file_path: str,
+    ) -> Document:
+        """Insert a new Document record with status='pending'."""
+        document = Document(
+            company=company,
+            fiscal_year=fiscal_year,
+            filename=filename,
+            file_path=file_path,
         )
-        self.db.add(db_doc)
-        await self.db.commit()
-        await self.db.refresh(db_doc)
-        return db_doc
+        self.db.add(document)
+        self.db.commit()
+        self.db.refresh(document)  # populates auto-generated fields (id, created_at)
+        return document
 
-    async def get_document(self, doc_id: int) -> Optional[Document]:
-        """
-        Fetches a document by its primary key id.
-        """
-        # TODO: Add joinedload for chunks to prevent N+1 queries if needed
-        result = await self.db.execute(select(Document).where(Document.id == doc_id))
-        return result.scalars().first()
+    def get_by_id(self, document_id: int) -> Document | None:
+        """Fetch a single Document by its primary key, or None if not found."""
+        return self.db.get(Document, document_id)
 
-    async def list_documents(self, skip: int = 0, limit: int = 100) -> List[Document]:
-        """
-        Fetches multiple documents with pagination.
-        """
-        result = await self.db.execute(select(Document).offset(skip).limit(limit))
-        return list(result.scalars().all())
+    def list_all(self) -> list[Document]:
+        """Return all Document records. Fine for now; add pagination once volume grows."""
+        return self.db.query(Document).all()
 
-    async def update_document_status(self, doc_id: int, status: str) -> Optional[Document]:
-        """
-        Updates the status of a document and commits changes.
-        """
-        db_doc = await self.get_document(doc_id)
-        if db_doc:
-            db_doc.status = status
-            self.db.add(db_doc)
-            await self.db.commit()
-            await self.db.refresh(db_doc)
-        return db_doc
+    def list_by_company(self, company: str) -> list[Document]:
+        """Return all filings for a given company ticker."""
+        return self.db.query(Document).filter(Document.company == company).all()
 
-    async def add_document_chunks(self, doc_id: int, chunks: List[dict]) -> List[DocumentChunk]:
-        """
-        Adds multiple chunk blocks associated with a document.
-        """
-        db_chunks = []
-        for c in chunks:
-            chunk = DocumentChunk(
-                document_id=doc_id,
-                chunk_index=c["chunk_index"],
-                content=c["content"],
-                vector_id=c.get("vector_id"),
-                chunk_metadata=c.get("chunk_metadata", {})
-            )
-            self.db.add(chunk)
-            db_chunks.append(chunk)
-        
-        await self.db.commit()
-        return db_chunks
+    def update_status(self, document_id: int, status: str) -> Document | None:
+        """Update a document's pipeline status (pending/parsing/chunked/embedded/ready/failed)."""
+        document = self.get_by_id(document_id)
+        if document is None:
+            return None
+        document.status = status
+        self.db.commit()
+        self.db.refresh(document)
+        return document
