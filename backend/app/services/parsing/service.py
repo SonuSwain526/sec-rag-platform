@@ -1,29 +1,34 @@
-"""
-Parsing Service Implementation for sec-rag.
+from pathlib import Path
 
-Handles extraction logic for HTML/PDF/XBRL filings.
-"""
+from docling.document_converter import DocumentConverter
+from docling.datamodel.document import ConversionResult
 
-from app.services.parsing.interfaces import BaseParsingService
-from app.services.parsing.exceptions import ParsingError
+from app.services.parsing.interfaces import DocumentParser
+from app.services.parsing.exceptions import ParsingError, UnsupportedFileTypeError
+
+SUPPORTED_EXTENSIONS = {".htm", ".html", ".pdf"}
 
 
-class ParsingService(BaseParsingService):
+class DoclingParsingService(DocumentParser):
     """
-    Service class responsible for reading and parsing raw SEC filing files.
+    Docling-based implementation of DocumentParser.
+    Parses SEC 10-K filings (HTML or PDF) into a structured document
+    model, preserving heading hierarchy and table structure.
     """
-    def __init__(self) -> None:
-        # TODO: Inject configurations or parser clients (e.g. PyPDF2, BeautifulSoup, xbrl)
-        pass
 
-    async def parse_file(self, file_path: str) -> str:
-        """
-        Extracts clean text content from the given file path.
-        """
-        # TODO: Implement file type detection (PDF vs HTML vs XBRL)
-        # TODO: Implement custom text cleaners to remove tables/headers/footers if needed
-        if not file_path:
-            raise ParsingError("File path cannot be empty")
-        
-        # Placeholder text output
-        return f"Parsed plaintext content for SEC file at: {file_path}"
+    def __init__(self):
+        self.converter = DocumentConverter()
+
+    def parse(self, file_path: Path) -> ConversionResult:
+        if file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+            raise UnsupportedFileTypeError(
+                f"Unsupported file type: {file_path.suffix} (file: {file_path.name})"
+            )
+
+        if not file_path.exists():
+            raise ParsingError(f"File not found: {file_path}")
+
+        try:
+            return self.converter.convert(str(file_path))
+        except Exception as e:
+            raise ParsingError(f"Docling failed to parse {file_path.name}: {e}") from e
