@@ -42,3 +42,5 @@ passlib[bcrypt]==1.7.4
 requests==2.32.3
 
 docling
+
+tiktoken==0.8.0
