@@ -4,10 +4,6 @@ from dataclasses import dataclass
 from docling_core.types.doc.document import DoclingDocument
 from docling_core.types.doc.labels import DocItemLabel
 
-# Matches "Item 7.", "Item 7A.", "Item 7.    Management's Discussion..."
-# Group 3 captures anything after the item code on the SAME text item —
-# a real section header has its title inline; a Table of Contents entry
-# is just the bare "Item 7." with nothing else, so group 3 is blank there.
 ITEM_PATTERN = re.compile(r"^Item\s+(\d{1,2})([A-Z]?)\.?\s*(.*)$", re.IGNORECASE)
 
 
@@ -21,19 +17,36 @@ class Section:
 
 class SectionTagger:
     """
-    Detects SEC 10-K "Item X" section boundaries in a Docling document.
-    SEC's HTML has no real heading tags, so every 'Item X' marker is
-    just plain text. A real section header carries its title inline on
-    the same text item; a Table of Contents entry is a bare marker with
-    nothing else — confirmed against real filing data with no exceptions.
+    Detects SEC 10-K "Item X" section boundaries in a Docling document,
+    and slices document content into those sections.
     """
 
     def find_sections(self, doc: DoclingDocument) -> list[Section]:
         candidates = self._find_item_markers(doc)
         return self._filter_toc_entries(candidates)
 
+    def get_section_content(self, doc: DoclingDocument, sections: list[Section]) -> dict[str, list]:
+        """
+        Slices the document into content grouped by section.
+        Returns a dict mapping item_code -> list of Docling items belonging
+        to that section (everything between this section's start and the
+        next section's start; the last section runs to the end of doc).
+        """
+        section_starts = {section.start_ref: section.item_code for section in sections}
+        content_by_section: dict[str, list] = {section.item_code: [] for section in sections}
+
+        current_section_code: str | None = None
+
+        for item, _level in doc.iterate_items():
+            if item.self_ref in section_starts:
+                current_section_code = section_starts[item.self_ref]
+
+            if current_section_code is not None:
+                content_by_section[current_section_code].append(item)
+
+        return content_by_section
+
     def _find_item_markers(self, doc: DoclingDocument) -> list[tuple]:
-        """Returns (item_code, inline_title, docling_item) for every 'Item X' match, in document order."""
         matches = []
         for item, _level in doc.iterate_items():
             if item.label != DocItemLabel.TEXT:
@@ -47,12 +60,6 @@ class SectionTagger:
         return matches
 
     def _filter_toc_entries(self, candidates: list) -> list[Section]:
-        """
-        Keeps only markers with a non-blank inline title.
-        TOC entries are bare markers with nothing else on the line —
-        always blank inline title. Real section headers always carry
-        their title inline. Verified with zero exceptions on real data.
-        """
         real_sections = []
         for item_code, inline_title, item in candidates:
             if not inline_title:
