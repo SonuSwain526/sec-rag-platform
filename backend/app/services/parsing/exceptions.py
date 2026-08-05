@@ -1,13 +1,13 @@
-"""
-Parsing Service Exceptions for sec-rag.
-"""
-
-
 class ParsingError(Exception):
-    """
-    Raised when document parsing or extraction fails.
-    """
-    def __init__(self, message: str, details: str = None) -> None:
-        super().__init__(message)
-        self.message = message
-        self.details = details
+    """Raised when a document fails to parse for any reason."""
+    pass
+
+
+class UnsupportedFileTypeError(ParsingError):
+    """Raised when the file extension isn't a type our parser supports."""
+    pass
+
+
+class CleaningError(Exception):
+    """Raised when document cleaning fails on an already-parsed document."""
+    pass
