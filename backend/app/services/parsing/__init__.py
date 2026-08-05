@@ -1,11 +1,9 @@
 """
-Parsing Service package for sec-rag.
+Parsing package for sec-rag.
 
-Handles converting raw SEC documents (HTML/PDF/XBRL) to clean plaintext structures.
+Exposes the document parsing interface and its Docling-based implementation.
 """
+from app.services.parsing.interfaces import DocumentParser
+from app.services.parsing.service import DoclingParsingService
 
-from app.services.parsing.interfaces import BaseParsingService
-from app.services.parsing.service import ParsingService
-from app.services.parsing.exceptions import ParsingError
-
-__all__ = ["BaseParsingService", "ParsingService", "ParsingError"]
+__all__ = ["DocumentParser", "DoclingParsingService"]
