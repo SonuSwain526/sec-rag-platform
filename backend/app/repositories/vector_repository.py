@@ -1,82 +1,53 @@
-"""
-Vector Repository Module for sec-rag.
+import uuid
 
-Exposes interfaces and implementation skeletons for Qdrant Vector search store operations.
-"""
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from app.core.config import get_settings
+
+settings = get_settings()
 
 
-class BaseVectorRepository(ABC):
+class VectorRepository:
     """
-    Abstract interface for managing Qdrant vector database insertions and searches.
+    Handles all interaction with Qdrant — creating the collection,
+    storing chunk vectors with their metadata, and searching by
+    similarity. This is the only place in the app that talks to
+    Qdrant directly, same principle as SQL repositories for SQLite.
     """
-    @abstractmethod
-    async def create_collection(self, collection_name: str, vector_size: int) -> bool:
-        """Create a new search collection in Qdrant."""
-        pass
 
-    @abstractmethod
-    async def upsert_vectors(
-        self,
-        collection_name: str,
-        vectors: List[List[float]],
-        payloads: List[Dict[str, Any]],
-        ids: List[str]
-    ) -> bool:
-        """Upload text chunk embeddings and matching metadata payload to the index."""
-        pass
+    def __init__(self):
+        self.client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+        self.collection_name = settings.QDRANT_COLLECTION_NAME
 
-    @abstractmethod
-    async def search_vectors(
-        self,
-        collection_name: str,
-        query_vector: List[float],
-        top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        """Run similarity queries on the index returning matching vectors and weights."""
-        pass
+    def ensure_collection(self) -> None:
+        """Creates the Qdrant collection if it doesn't already exist. Safe to call every startup."""
+        existing = [c.name for c in self.client.get_collections().collections]
+        if self.collection_name not in existing:
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=VectorParams(size=settings.EMBEDDING_DIMENSION, distance=Distance.COSINE),
+            )
 
-
-class QdrantVectorRepository(BaseVectorRepository):
-    """
-    Qdrant implementation of the vector database interface.
-    """
-    def __init__(self, qdrant_client: Any) -> None:
-        # TODO: Accept a qdrant_client instance from qdrant_client library
-        self.client = qdrant_client
-
-    async def create_collection(self, collection_name: str, vector_size: int) -> bool:
+    def upsert_chunks(
+        self, chunk_ids: list[int], vectors: list[list[float]], payloads: list[dict]
+    ) -> list[str]:
         """
-        Creates a Qdrant collection with cosine distance parameter.
+        Stores vectors in Qdrant, one per chunk. Returns the generated
+        Qdrant point IDs, so callers can save them back onto the
+        SQLite DocumentChunk rows (via vector_id).
         """
-        # TODO: Call self.client.recreate_collection or self.client.create_collection
-        return True
+        point_ids = [str(uuid.uuid4()) for _ in chunk_ids]
+        points = [
+            PointStruct(id=point_id, vector=vector, payload=payload)
+            for point_id, vector, payload in zip(point_ids, vectors, payloads)
+        ]
+        self.client.upsert(collection_name=self.collection_name, points=points)
+        return point_ids
 
-    async def upsert_vectors(
-        self,
-        collection_name: str,
-        vectors: List[List[float]],
-        payloads: List[Dict[str, Any]],
-        ids: List[str]
-    ) -> bool:
-        """
-        Upserts vectors and payload payloads into the Qdrant instance.
-        """
-        # TODO: Package points into qdrant_client.models.PointStruct lists and upsert
-        return True
-
-    async def search_vectors(
-        self,
-        collection_name: str,
-        query_vector: List[float],
-        top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Queries Qdrant to find matching chunks using the embedded query.
-        """
-        # TODO: Formulate Filter parameters and invoke self.client.search
-        return []
+    def search(self, query_vector: list[float], top_k: int = 5) -> list[dict]:
+        """Finds the top_k most similar vectors to the given query vector."""
+        results = self.client.search(
+            collection_name=self.collection_name, query_vector=query_vector, limit=top_k
+        )
+        return [{"id": r.id, "score": r.score, "payload": r.payload} for r in results]
