@@ -50,4 +50,4 @@ class VectorRepository:
         results = self.client.search(
             collection_name=self.collection_name, query_vector=query_vector, limit=top_k
         )
-        return [{"id": r.id, "score": r.score, "payload": r.payload} for r in results]
+        return [{"id": r.id, "score": r.score, "payload": r.payload} for r in results]  
