@@ -121,14 +121,25 @@ class Chunker:
         return merged
 
     def _table_to_text(self, table_item) -> str:
-        """Converts a table item into a simple, readable text representation for embedding."""
-        rows_text = []
-        for row in table_item.data.grid:
-            cells_text = [cell.text.strip() for cell in row if cell.text and cell.text.strip()]
-            if cells_text:
-                rows_text.append(" | ".join(cells_text))
-        return "\n".join(rows_text)
+            """
+            Converts a table into readable text for embedding, one line per row.
+            De-duplicates consecutive identical cell values within each row —
+            done here at read-time (never by mutating the source document),
+            since some filers' HTML causes Docling to reuse the same cell
+            object across multiple spanned grid positions.
+            """
+            rows_text = []
+            for row in table_item.data.grid:
+                cell_values = [cell.text.strip() for cell in row if cell.text and cell.text.strip()]
 
+                deduped = []
+                for value in cell_values:
+                    if not deduped or deduped[-1] != value:
+                        deduped.append(value)
+
+                if deduped:
+                    rows_text.append(" | ".join(deduped))
+            return "\n".join(rows_text)
     def _make_chunk(
         self, content: str, chunk_type: str, section: Section, company: str, fiscal_year: int
     ) -> Chunk:

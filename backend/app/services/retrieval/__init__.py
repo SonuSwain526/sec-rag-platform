@@ -1,11 +1,9 @@
 """
-Retrieval Service package for sec-rag.
+Retrieval package for sec-rag.
 
-Handles query embedding formulation and vector store match searches.
+Exposes keyword search (BM25) and the hybrid search combiner.
 """
+from app.services.retrieval.bm25_index import BM25Index
+from app.services.retrieval.hybrid_search import HybridSearch
 
-from app.services.retrieval.interfaces import BaseRetrievalService
-from app.services.retrieval.service import RetrievalService
-from app.services.retrieval.exceptions import RetrievalError
-
-__all__ = ["BaseRetrievalService", "RetrievalService", "RetrievalError"]
+__all__ = ["BM25Index", "HybridSearch"]
