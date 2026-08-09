@@ -2,6 +2,7 @@ import uuid
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchAny
 
 from app.core.config import get_settings
 
@@ -45,9 +46,18 @@ class VectorRepository:
         self.client.upsert(collection_name=self.collection_name, points=points)
         return point_ids
 
-    def search(self, query_vector: list[float], top_k: int = 5) -> list[dict]:
-        """Finds the top_k most similar vectors to the given query vector."""
+    def search(self, query_vector: list[float], top_k: int = 5, companies: list[str] | None = None) -> list[dict]:
+        """Finds the top_k most similar vectors, optionally filtered to specific companies."""
+        query_filter = None
+        if companies:
+            query_filter = Filter(
+                must=[FieldCondition(key="company", match=MatchAny(any=companies))]
+            )
+
         results = self.client.search(
-            collection_name=self.collection_name, query_vector=query_vector, limit=top_k
+            collection_name=self.collection_name,
+            query_vector=query_vector,
+            limit=top_k,
+            query_filter=query_filter,
         )
-        return [{"id": r.id, "score": r.score, "payload": r.payload} for r in results]  
+        return [{"id": r.id, "score": r.score, "payload": r.payload} for r in results]

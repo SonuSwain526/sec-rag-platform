@@ -19,13 +19,15 @@ class BM25Index:
     def _tokenize(self, text: str) -> list[str]:
         """Simple lowercase whitespace tokenization — good enough for BM25's needs."""
         return text.lower().split()
+    
+    def search(self, query: str, top_k: int = 5, companies: list[str] | None = None) -> list[tuple[DocumentChunk, float]]:
+            tokenized_query = self._tokenize(query)
+            scores = self.bm25.get_scores(tokenized_query)
 
-    def search(self, query: str, top_k: int = 5) -> list[tuple[DocumentChunk, float]]:
-        """Returns the top_k chunks most relevant to the query by keyword match, with their BM25 scores."""
-        tokenized_query = self._tokenize(query)
-        scores = self.bm25.get_scores(tokenized_query)
+            scored_chunks = list(zip(self.chunks, scores))
 
-        scored_chunks = list(zip(self.chunks, scores))
-        scored_chunks.sort(key=lambda pair: pair[1], reverse=True)
+            if companies:
+                scored_chunks = [(chunk, score) for chunk, score in scored_chunks if chunk.company in companies]
 
-        return scored_chunks[:top_k]
+            scored_chunks.sort(key=lambda pair: pair[1], reverse=True)
+            return scored_chunks[:top_k]

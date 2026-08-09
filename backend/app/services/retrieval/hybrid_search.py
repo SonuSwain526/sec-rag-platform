@@ -18,13 +18,12 @@ class HybridSearch:
         self.vector_repo = vector_repo
         self.bm25_index = bm25_index
 
-    def search(self, query: str, top_k: int = 5, candidates_per_method: int = 20) -> list[dict]:
-        # 1. Semantic search results
+    def search(self, query: str, top_k: int = 5, candidates_per_method: int = 20, companies: list[str] | None = None) -> list[dict]:
+        
         query_vector = self.embedder.embed_text(query)
-        semantic_results = self.vector_repo.search(query_vector, top_k=candidates_per_method)
-
-        # 2. BM25 keyword search results
-        bm25_results = self.bm25_index.search(query, top_k=candidates_per_method)
+        semantic_results = self.vector_repo.search(query_vector, top_k=candidates_per_method, companies=companies)
+        bm25_results = self.bm25_index.search(query, top_k=candidates_per_method, companies=companies)
+        # ... rest of the method stays exactly the same
 
         # 3. Combine via Reciprocal Rank Fusion
         rrf_scores: dict[int, float] = {}

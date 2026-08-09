@@ -1,11 +1,11 @@
 """
-Generation Service package for sec-rag.
+Generation package for sec-rag.
 
-Handles synthesis of contextual documents into user-friendly answers.
+Exposes the Groq LLM client, prompt builder, and the full RAG
+orchestration service that ties retrieval + generation together.
 """
+from app.services.generation.groq_client import GroqClient
+from app.services.generation.prompt_builder import PromptBuilder, SYSTEM_PROMPT
+from app.services.generation.rag_service import RagService
 
-from app.services.generation.interfaces import BaseGenerationService
-from app.services.generation.service import GenerationService
-from app.services.generation.exceptions import GenerationError
-
-__all__ = ["BaseGenerationService", "GenerationService", "GenerationError"]
+__all__ = ["GroqClient", "PromptBuilder", "SYSTEM_PROMPT", "RagService"]
