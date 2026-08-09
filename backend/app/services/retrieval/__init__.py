@@ -5,5 +5,6 @@ Exposes keyword search (BM25) and the hybrid search combiner.
 """
 from app.services.retrieval.bm25_index import BM25Index
 from app.services.retrieval.hybrid_search import HybridSearch
+from app.services.retrieval.pipeline import RetrievalPipeline
 
-__all__ = ["BM25Index", "HybridSearch"]
+__all__ = ["BM25Index", "HybridSearch", "RetrievalPipeline"]
