@@ -7,5 +7,6 @@ Handles system-wide performance scoring, trace metrics, and user feedback metric
 from app.services.evaluation.interfaces import BaseEvaluationService
 from app.services.evaluation.service import EvaluationService
 from app.services.evaluation.exceptions import EvaluationError
+from app.services.evaluation.evaluator import RagEvaluator
 
-__all__ = ["BaseEvaluationService", "EvaluationService", "EvaluationError"]
+__all__ = ["BaseEvaluationService", "EvaluationService", "EvaluationError", "RagEvaluator"]

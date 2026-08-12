@@ -14,7 +14,7 @@ class RagService:
         self.groq_client = groq_client
         self.prompt_builder = prompt_builder
 
-    def answer(self, question: str, top_k: int = 5) -> dict:
+    def answer(self, question: str, top_k: int = 7) -> dict:
         """Returns a dict with the generated answer plus the source chunks used, for transparency."""
         chunks = self.retrieval_pipeline.retrieve(question, final_top_k=top_k)
 

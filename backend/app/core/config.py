@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: str | None = None  # only needed if using Qdrant Cloud
     QDRANT_COLLECTION_NAME: str = "sec_filings"
 
+    # OpenAI (used only for Ragas evaluation judge, not the main RAG pipeline)
+    OPENAI_API_KEY: str | None = None   
+    
     # Embedding model
     EMBEDDING_MODEL_NAME: str = "BAAI/bge-large-en-v1.5"
     EMBEDDING_DIMENSION: int = 1024

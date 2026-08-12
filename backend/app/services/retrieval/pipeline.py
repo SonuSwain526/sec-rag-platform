@@ -9,7 +9,7 @@ class RetrievalPipeline:
         self.reranker = reranker
         self.company_detector = company_detector
 
-    def retrieve(self, query: str, final_top_k: int = 5, candidate_pool_size: int = 15) -> list[dict]:
+    def retrieve(self, query: str, final_top_k: int = 7, candidate_pool_size: int = 15) -> list[dict]:
         companies = self.company_detector.detect(query)
         candidates = self.hybrid_search.search(query, top_k=candidate_pool_size, companies=companies or None)
         return self.reranker.rerank(query, candidates, top_k=final_top_k)
