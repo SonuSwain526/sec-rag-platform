@@ -14,11 +14,11 @@ REQUEST_DELAY_SECONDS = 0.3
 # The specific XBRL "concept" tags we care about, mapped to a readable label.
 # These are standardized US-GAAP taxonomy names — the same across all filers.
 TRACKED_CONCEPTS = {
-    "Revenues": "Total Revenue",
+    "RevenueFromContractWithCustomerExcludingAssessedTax": "Total Revenue",
+    "Revenues": "Total Revenue",  # fallback for companies/years still using the older tag
     "NetIncomeLoss": "Net Income",
     "ResearchAndDevelopmentExpense": "R&D Expense",
 }
-
 
 class XbrlClient:
     """
@@ -33,29 +33,27 @@ class XbrlClient:
         response.raise_for_status()
         time.sleep(REQUEST_DELAY_SECONDS)
         return response.json()
-
     def get_tracked_facts(self, cik: str) -> dict[str, list[dict]]:
-        """
-        Returns only the concepts we care about, filtered to genuine
-        FULL FISCAL YEAR figures — SEC's XBRL data includes both annual
-        totals and their constituent quarters under the same form="10-K"
-        tag, so we additionally require the period to span roughly a
-        full year (~350-380 days) and the frame to not be a quarter.
-        """
-        data = self.get_company_facts(cik)
-        us_gaap_facts = data.get("facts", {}).get("us-gaap", {})
+            data = self.get_company_facts(cik)
+            us_gaap_facts = data.get("facts", {}).get("us-gaap", {})
 
-        results = {}
-        for concept, label in TRACKED_CONCEPTS.items():
-            if concept not in us_gaap_facts:
-                continue
-            usd_values = us_gaap_facts[concept].get("units", {}).get("USD", [])
-            annual_values = [v for v in usd_values if self._is_full_year(v)]
-            deduped = self._dedupe_by_period(annual_values)
-            results[label] = deduped
+            results: dict[str, list[dict]] = {}
+            for concept, label in TRACKED_CONCEPTS.items():
+                if concept not in us_gaap_facts:
+                    continue
+                usd_values = us_gaap_facts[concept].get("units", {}).get("USD", [])
+                annual_values = [v for v in usd_values if self._is_full_year(v)]
 
-        return results
+                # Merge into any existing entries for this label (multiple XBRL
+                # tags can map to the same label, e.g. old vs new revenue tags)
+                results.setdefault(label, []).extend(annual_values)
 
+            # Dedupe AFTER merging all concepts for each label, so the most
+            # recently filed entry wins regardless of which tag it came from
+            for label in results:
+                results[label] = self._dedupe_by_period(results[label])
+
+            return results
     def _is_full_year(self, entry: dict) -> bool:
         """True if this entry represents a full fiscal year, not a quarter."""
         if entry.get("form") != "10-K":
