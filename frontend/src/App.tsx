@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AuthScreen } from "@/components/AuthScreen";
+import { ChatInterface } from "@/components/ChatInterface";
 import { isLoggedIn } from "@/lib/api";
 
 function App() {
@@ -13,11 +14,7 @@ function App() {
     return <AuthScreen onLoginSuccess={() => setLoggedIn(true)} />;
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <p>Logged in! Chat interface goes here next.</p>
-    </div>
-  );
+  return <ChatInterface />;
 }
 
 export default App;
