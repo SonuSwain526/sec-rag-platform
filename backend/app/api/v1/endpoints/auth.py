@@ -5,6 +5,9 @@ from app.db.session import get_db
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import UserSignup, UserLogin, TokenResponse, UserResponse
 from app.core.security import hash_password, verify_password, create_access_token
+from app.api.v1.dependencies import get_current_user
+from app.models.user import User
+
 
 router = APIRouter()
 
@@ -32,3 +35,8 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
 
     token = create_access_token(user_id=user.id, email=user.email)
     return TokenResponse(access_token=token)
+
+@router.get("/auth/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    """Protected endpoint — only works with a valid token. Returns the caller's own user info."""
+    return current_user
