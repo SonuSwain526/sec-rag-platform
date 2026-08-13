@@ -6,21 +6,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.api.v1.router import api_router
+from app.core.rag_dependencies import build_rag_service, set_rag_service
 
 settings = get_settings()
 
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Runs once at startup, then once at shutdown.
-    This is where we'll later load embedding/reranker models into
-    memory (Phase 8+) so they aren't reloaded on every request.
-    """
     setup_logging()
-    # Startup logic goes here (e.g., warm up ML models, check Qdrant connection)
+    print("Building RAG pipeline (loading models)... this happens once at startup.")
+    rag_service = build_rag_service()
+    set_rag_service(rag_service)
+    print("RAG pipeline ready.")
     yield
-    # Shutdown logic goes here (e.g., close DB connections gracefully)
+    # Shutdown logic goes here if needed later
 
 
 def create_app() -> FastAPI:
