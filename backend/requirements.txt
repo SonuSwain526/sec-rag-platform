@@ -1,64 +1,34 @@
-# FastAPI Web Framework
-fastapi
-uvicorn[standard]
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1
 
-# Data Validation and Settings Management
-pydantic
-pydantic-settings
-
-# Database and Migrations
-sqlalchemy[asyncio]
-asyncpg
-alembic
-
-# Vector Store Client
-qdrant-client
-
-# Authentication and Cryptography
-python-jose[cryptography]
-passlib[bcrypt]
-python-multipart
-
-# HTTP Client (for routing integration testing)
-httpx
-
-# Development and Testing Suite
-pytest
-pytest-asyncio
-black
-flake8
-
-#from claude 
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
 pydantic==2.9.2
+pydantic[email]==2.9.2
 pydantic-settings==2.6.0
 python-dotenv==1.0.1
+
 sqlalchemy==2.0.36
 alembic==1.13.3
+
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+python-multipart==0.0.19
 
 requests==2.32.3
+httpx==0.27.2
 
-docling
-
+docling==2.14.0
 tiktoken==0.8.0
-
 sentence-transformers==3.3.1
-
 qdrant-client==1.12.1
-
 rank-bm25==0.2.2
 
 groq==0.13.0
-
-ragas==0.2.10
+langchain==0.3.14
 langchain-groq==0.2.3
-datasets==3.2.0
-
 langchain-huggingface==0.1.2
-
 langchain-openai==0.2.14
-
-pydantic[email]==2.9.2
+ragas==0.2.10
+datasets==3.2.0
