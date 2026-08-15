@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import type { Message } from "@/lib/types";
+import { ThinkingIndicator } from "@/components/ThinkingIndicator";
+import { Send } from "lucide-react";
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -13,7 +14,7 @@ export function ChatInterface() {
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, loading]);
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -28,97 +29,109 @@ export function ChatInterface() {
       const result = await api.query(question, true);
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: result.answer,
-          sources: result.sources,
-          verification: result.verification,
-        },
+        { role: "assistant", content: result.answer, sources: result.sources, verification: result.verification },
       ]);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Sorry, something went wrong. Please try again." },
-      ]);
+      const message = err instanceof Error ? err.message : "Something went wrong";
+      setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${message}` }]);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex flex-col h-screen max-w-3xl mx-auto">
-      <div className="border-b p-4">
-        <h1 className="text-lg font-semibold">SEC Filings Q&A</h1>
-        <p className="text-sm text-slate-500">Ask about Apple, Microsoft, Google, Amazon, or Meta's 10-K filings</p>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-[calc(100vh-56px)] max-w-3xl mx-auto">
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
         {messages.length === 0 && (
-          <p className="text-slate-400 text-sm text-center mt-8">
-            Try: "What was Apple's total revenue in fiscal year 2025?"
-          </p>
+          <div className="text-center mt-16">
+            <p className="text-zinc-400 text-sm mb-3">Ask about a 10-K filing to get started</p>
+            <div className="flex flex-wrap gap-2 justify-center max-w-md mx-auto">
+              {[
+                "What was Apple's total revenue in fiscal year 2025?",
+                "Compare Apple and Microsoft's risk factors",
+                "Microsoft's cybersecurity measures",
+              ].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => setInput(q)}
+                  className="text-xs text-zinc-600 bg-zinc-50 border rounded-full px-3 py-1.5 hover:bg-zinc-100 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={msg.role === "user" ? "text-right" : "text-left"}>
-            <div
-              className={`inline-block max-w-[85%] rounded-lg px-4 py-2 text-sm ${
-                msg.role === "user"
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-900"
-              }`}
-            >
-              {msg.content}
+          <div key={i} className={msg.role === "user" ? "flex justify-end" : "flex justify-start"}>
+            <div className="max-w-[85%]">
+              <div
+                className={`rounded-lg px-4 py-2.5 text-[14px] leading-relaxed ${
+                  msg.role === "user" ? "bg-zinc-900 text-white" : "bg-white border text-zinc-800"
+                }`}
+              >
+                {msg.content}
+              </div>
+
+              {msg.role === "assistant" && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {msg.verification && msg.verification.length > 0 ? (
+                    msg.verification.map((v, vi) => (
+                      <span
+                        key={vi}
+                        className={`text-xs font-medium px-2 py-1 rounded-md ${
+                          v.status === "verified"
+                            ? "bg-green-50 text-green-700"
+                            : v.status === "discrepancy"
+                            ? "bg-orange-50 text-orange-700"
+                            : "bg-zinc-100 text-zinc-500"
+                        }`}
+                      >
+                        {v.status === "verified" ? "✓ Verified" : v.status === "discrepancy" ? "⚠ Discrepancy" : "? Unverifiable"}
+                        {v.metric ? ` · ${v.metric}` : ""}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[11px] text-zinc-400 italic">No verifiable figures in this answer</span>
+                  )}
+                </div>
+              )}
+
+              {msg.role === "assistant" && !!msg.sources?.length && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {[...new Set(msg.sources.map((s) => `${s.company} FY${s.fiscal_year} · Item ${s.item_code}`))].map(
+                    (src, si) => (
+                      <span key={si} className="text-[11px] text-zinc-400 border rounded px-1.5 py-0.5">
+                        {src}
+                      </span>
+                    )
+                  )}
+                </div>
+              )}
             </div>
-
-            {msg.role === "assistant" && msg.verification && msg.verification.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {msg.verification.map((v, vi) => (
-                  <Badge
-                    key={vi}
-                    variant={v.status === "verified" ? "default" : "destructive"}
-                  >
-                    {v.status === "verified" ? "✅ Verified" : v.status === "discrepancy" ? "⚠️ Discrepancy" : "❓ Unverifiable"}
-                    {v.metric ? `: ${v.metric}` : ""}
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {[...new Set(msg.sources.map((s) => `${s.company} FY${s.fiscal_year} Item ${s.item_code}`))].map(
-                  (src, si) => (
-                    <Badge key={si} variant="outline" className="text-xs">
-                      {src}
-                    </Badge>
-                  )
-                )}
-              </div>
-            )}
           </div>
         ))}
 
         {loading && (
-          <div className="text-left">
-            <div className="inline-block bg-slate-100 rounded-lg px-4 py-2 text-sm text-slate-500">
-              Thinking...
-            </div>
+          <div className="flex justify-start">
+            <ThinkingIndicator />
           </div>
         )}
 
         <div ref={scrollRef} />
       </div>
 
-      <form onSubmit={handleSend} className="border-t p-4 flex gap-2">
+      <form onSubmit={handleSend} className="border-t bg-white p-3 flex gap-2">
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about a 10-K filing..."
           disabled={loading}
+          className="text-sm"
         />
-        <Button type="submit" disabled={loading || !input.trim()}>
-          Send
+        <Button type="submit" disabled={loading || !input.trim()} className="bg-blue-600 hover:bg-blue-700 px-3">
+          <Send size={16} />
         </Button>
       </form>
     </div>
