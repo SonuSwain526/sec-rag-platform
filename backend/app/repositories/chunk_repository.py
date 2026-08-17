@@ -41,3 +41,8 @@ class ChunkRepository:
 
     def count_by_document(self, document_id: int) -> int:
         return self.db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).count()
+
+    def get_by_ids(self, chunk_ids: list[int]) -> list[DocumentChunk]:
+        """Fetches multiple chunks by ID in one query — used to look up
+        full content for a small final result set, not the whole corpus."""
+        return self.db.query(DocumentChunk).filter(DocumentChunk.id.in_(chunk_ids)).all()
