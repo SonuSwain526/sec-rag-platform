@@ -1,3 +1,5 @@
+import gc
+
 from app.db.session import SessionLocal
 from app.models.chunk import DocumentChunk
 from app.services.embedding.embedder import Embedder
@@ -24,16 +26,28 @@ def build_rag_service() -> RagService:
     """
     Constructs the full RAG pipeline (embedder, retrieval, reranking,
     generation, validation). Called once at app startup via lifespan.
+
+    Explicit gc.collect() calls are placed between loading each large
+    ML model — on memory-constrained deployments (e.g. Railway's free
+    tier), the transient overhead of loading one model while another
+    is still resident can spike above the container's memory limit
+    even if neither model is large individually. Forcing garbage
+    collection between loads releases that temporary overhead first.
     """
     db = SessionLocal()
     all_chunks = db.query(DocumentChunk).all()
     db.close()
 
     embedder = Embedder()
+    gc.collect()
+
     vector_repo = VectorRepository()
     bm25_index = BM25Index(all_chunks)
     hybrid = HybridSearch(embedder, vector_repo, bm25_index)
+
     reranker = Reranker()
+    gc.collect()
+
     company_detector = CompanyDetector()
     pipeline = RetrievalPipeline(hybrid, reranker, company_detector)
 
