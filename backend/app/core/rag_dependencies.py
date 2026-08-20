@@ -1,5 +1,3 @@
-import gc
-
 from app.db.session import SessionLocal
 from app.models.chunk import DocumentChunk
 from app.services.embedding.embedder import Embedder
@@ -16,38 +14,19 @@ from app.services.validation.xbrl_client import XbrlClient
 from app.services.validation.fact_extractor import FactExtractor
 from app.services.validation.validator import XbrlValidator
 
-# Module-level singleton — built once when this module is first imported,
-# reused for every request. Building these is expensive (loads ML models),
-# so we never want to recreate them per-request.
 _rag_service: RagService | None = None
 
 
 def build_rag_service() -> RagService:
-    """
-    Constructs the full RAG pipeline (embedder, retrieval, reranking,
-    generation, validation). Called once at app startup via lifespan.
-
-    Explicit gc.collect() calls are placed between loading each large
-    ML model — on memory-constrained deployments (e.g. Railway's free
-    tier), the transient overhead of loading one model while another
-    is still resident can spike above the container's memory limit
-    even if neither model is large individually. Forcing garbage
-    collection between loads releases that temporary overhead first.
-    """
     db = SessionLocal()
     all_chunks = db.query(DocumentChunk).all()
     db.close()
 
     embedder = Embedder()
-    gc.collect()
-
     vector_repo = VectorRepository()
     bm25_index = BM25Index(all_chunks)
     hybrid = HybridSearch(embedder, vector_repo, bm25_index)
-
     reranker = Reranker()
-    gc.collect()
-
     company_detector = CompanyDetector()
     pipeline = RetrievalPipeline(hybrid, reranker, company_detector)
 
@@ -62,7 +41,6 @@ def build_rag_service() -> RagService:
 
 
 def get_rag_service() -> RagService:
-    """FastAPI dependency — returns the shared RagService instance."""
     if _rag_service is None:
         raise RuntimeError("RagService not initialized — check app startup/lifespan")
     return _rag_service

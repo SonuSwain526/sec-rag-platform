@@ -25,12 +25,21 @@ class VectorRepository:
             self.collection_name = settings.QDRANT_COLLECTION_NAME
 
     def ensure_collection(self) -> None:
-        """Creates the Qdrant collection if it doesn't already exist. Safe to call every startup."""
-        existing = [c.name for c in self.client.get_collections().collections]
-        if self.collection_name not in existing:
-            self.client.create_collection(
+            """Creates the Qdrant collection if it doesn't already exist, and
+            ensures a payload index exists on 'company' for filtered search."""
+            from qdrant_client.models import PayloadSchemaType
+
+            existing = [c.name for c in self.client.get_collections().collections]
+            if self.collection_name not in existing:
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(size=settings.EMBEDDING_DIMENSION, distance=Distance.COSINE),
+                )
+
+            self.client.create_payload_index(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(size=settings.EMBEDDING_DIMENSION, distance=Distance.COSINE),
+                field_name="company",
+                field_schema=PayloadSchemaType.KEYWORD,
             )
 
     # def upsert_chunks(

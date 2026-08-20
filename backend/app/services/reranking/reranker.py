@@ -16,7 +16,7 @@ class Reranker:
 
     def __init__(self):
         self.model = CrossEncoder(settings.RERANKER_MODEL_NAME)
-        self.model.model.half()  # fp16 for the underlying transformer
+        # self.model.model.half()  # fp16 for the underlying transformer
 
     def rerank(self, query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
         """
